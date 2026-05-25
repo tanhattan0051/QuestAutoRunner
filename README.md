@@ -58,9 +58,9 @@ pnpm install
 
 ```bash
 mkdir -p ~/Vencord/src/userplugins/questAutoRunner
-cp "/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/index.ts" \
+cp "/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/index.ts" \
    ~/Vencord/src/userplugins/questAutoRunner/
-cp "/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/native.ts" \
+cp "/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/native.ts" \
    ~/Vencord/src/userplugins/questAutoRunner/
 ```
 
@@ -83,7 +83,7 @@ open -a "Discord PTB"
 ### 5. Pin hash script aamiaa (BƯỚC BẢO MẬT — bắt buộc)
 
 ```bash
-"/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/pin-aamiaa.sh"
+"/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/pin-aamiaa.sh"
 ```
 
 Script sẽ:
@@ -135,7 +135,7 @@ $EDITOR "$HOME/Library/Application Support/Vencord/settings/questAutoRunner.pend
 diff old-aamiaa.js "$HOME/Library/Application Support/Vencord/settings/questAutoRunner.pending.js"
 
 # 3. Nếu OK, chạy lại pin script (sẽ pin hash mới):
-"/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/pin-aamiaa.sh"
+"/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/pin-aamiaa.sh"
 
 # 4. Restart Discord PTB
 osascript -e 'quit app "Discord PTB"' && sleep 1 && open -a "Discord PTB"
@@ -186,8 +186,8 @@ osascript -e 'quit app "Discord PTB"' && sleep 1 && open -a "Discord PTB"
 Sửa file trong vault, copy sang Vencord, build:
 
 ```bash
-cp "/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/index.ts" \
-   "/Users/tanta/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/native.ts" \
+cp "/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/index.ts" \
+   "/Users/$USER/Documents/Obsidian Vault/tool/discord/QuestAutoRunner/native.ts" \
    ~/Vencord/src/userplugins/questAutoRunner/
 cd ~/Vencord && pnpm build
 ```
