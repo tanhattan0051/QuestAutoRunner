@@ -116,33 +116,27 @@ System Settings → Notifications → **Discord PTB** → **Allow notifications*
 
 Triệu chứng:
 - Notification: **⚠️ QuestAutoRunner FROZEN**
+- File trên Desktop: **`QUEST_AUTORUNNER_FROZEN.txt`** (fallback nếu notification bị tắt)
 - Plugin tự tắt trong Vencord settings (toggle OFF)
-- Console log:
-  ```
-  FROZEN: Script aamiaa khác hash đã pin!
-    Pinned : abc...
-    Fetched: def...
-    Review script mới: ~/Library/Application Support/Vencord/settings/questAutoRunner.pending.js
-    Nếu OK, update hash: echo def... > ".../questAutoRunner.pinnedHash.txt"
-  ```
+- Console log có dòng `FROZEN:` kèm hash mới và hash đang pin
 
-Cách approve bản mới:
+Cách approve bản mới (KHÔNG tự echo hash — phải review JS):
 
 ```bash
-# 1. Review file pending (script aamiaa mới):
-$EDITOR "$HOME/Library/Application Support/Vencord/settings/questAutoRunner.pending.js"
-
-# 2. (Optional) Diff với bản trước nếu bạn có backup
-diff old-aamiaa.js "$HOME/Library/Application Support/Vencord/settings/questAutoRunner.pending.js"
-
-# 3. Nếu OK, chạy lại pin script (sẽ pin hash mới):
+# 1. Chạy lại pin script — nó sẽ fetch gist mới, hiện hash, MỞ JS để bạn review,
+#    rồi mới ghi hash mới vào pinnedHash.txt khi bạn confirm 'y':
 ~/QuestAutoRunner/pin-aamiaa.sh
 
-# 4. Restart Discord PTB
+# 2. Restart Discord PTB
 osascript -e 'quit app "Discord PTB"' && sleep 1 && open -a "Discord PTB"
 
-# 5. Vencord settings → Plugins → bật lại QuestAutoRunner
+# 3. Vencord settings → Plugins → bật lại QuestAutoRunner
 ```
+
+> ⚠️ **Đừng `echo HASH > pinnedHash.txt` trực tiếp.** Nó bỏ qua bước review JS — lớp bảo vệ chính của model bị mất. Luôn chạy `pin-aamiaa.sh` để có cửa sổ review.
+
+Nếu bạn muốn diff bản mới vs bản cũ trước khi pin, native đã ghi sẵn script vào:
+`~/Library/Application Support/Vencord/settings/questAutoRunner.pending.js`
 
 ---
 

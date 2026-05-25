@@ -73,7 +73,11 @@ function freeze(reason: string) {
     if (hashCheckTimer) clearTimeout(hashCheckTimer);
     hashCheckTimer = null;
     logger.error("FROZEN: " + reason);
-    notify("⚠️ QuestAutoRunner FROZEN", "Script aamiaa thay đổi hoặc chưa pin. Xem log + review trước khi bật lại.");
+    notify("⚠️ QuestAutoRunner FROZEN", "Script aamiaa thay đổi hoặc chưa pin. Xem ~/Desktop/QUEST_AUTORUNNER_FROZEN.txt + review trước khi bật lại.");
+    // Desktop fallback so the warning is visible even if macOS notification permission missing
+    Native.writeFreezeWarning(reason)
+        .then(path => logger.warn(`Freeze warning written: ${path}`))
+        .catch(e => logger.warn("writeFreezeWarning failed", e));
     try {
         const v: any = (globalThis as any).Vencord;
         if (v?.Settings?.plugins?.QuestAutoRunner) {
@@ -84,6 +88,28 @@ function freeze(reason: string) {
     }
 }
 
+function freezeMessage(kind: "unpinned" | "changed", r: any): string {
+    if (kind === "unpinned") {
+        return (
+            `Hash chưa được pin.\n` +
+            `→ Chạy pin-aamiaa.sh từ repo QuestAutoRunner để review JS và pin hash.\n` +
+            `   (KHÔNG echo hash trực tiếp — sẽ bỏ qua bước review JS.)\n` +
+            `Fetched hash: ${r.hash}\n` +
+            `Pending JS:   ${r.pendingPath}\n` +
+            `Sau khi pin: restart Discord PTB.`
+        );
+    }
+    return (
+        `Script aamiaa khác hash đã pin!\n` +
+        `  Pinned : ${r.pinnedHash}\n` +
+        `  Fetched: ${r.hash}\n` +
+        `→ Chạy pin-aamiaa.sh từ repo QuestAutoRunner để review JS mới và pin lại.\n` +
+        `   (KHÔNG echo hash trực tiếp — sẽ bỏ qua bước review JS.)\n` +
+        `Pending JS: ${r.pendingPath}\n` +
+        `Sau khi pin: restart Discord PTB + bật lại plugin trong Vencord settings.`
+    );
+}
+
 async function hashCheck() {
     if (stopped || frozen) return;
     try {
@@ -91,20 +117,10 @@ async function hashCheck() {
         if (r.status === "ok") {
             logger.info(`Periodic hash check OK (sha256 ${r.hash.slice(0, 12)}…)`);
         } else if (r.status === "unpinned") {
-            freeze(
-                `[periodic check] Hash chưa pin. Review:\n  ${r.pendingPath}\n` +
-                `Pin:\n  echo ${r.hash} > "${r.pinnedHashPath}"`
-            );
+            freeze("[periodic check] " + freezeMessage("unpinned", r));
             return;
         } else if (r.status === "changed") {
-            freeze(
-                `[periodic check] Script aamiaa khác hash đã pin!\n` +
-                `  Pinned : ${r.pinnedHash}\n` +
-                `  Fetched: ${r.hash}\n` +
-                `Review script mới:\n  ${r.pendingPath}\n` +
-                `Nếu OK, update hash:\n  echo ${r.hash} > "${r.pinnedHashPath}"\n` +
-                `Rồi restart Discord PTB + bật lại plugin.`
-            );
+            freeze("[periodic check] " + freezeMessage("changed", r));
             return;
         } else {
             logger.warn(`Periodic hash check error: ${r.error}`);
@@ -179,6 +195,10 @@ async function handleQuest(q: any) {
         logger.info(`Fetching aamiaa for: ${name}`);
         const r = await Native.fetchAamiaaScript();
 
+        // After await, re-check before doing anything: user may have disabled
+        // the plugin or another quest already triggered a freeze.
+        if (stopped || frozen) return;
+
         if (r.status === "ok") {
             logger.info(`Running aamiaa (sha256 ${r.hash.slice(0, 12)}…) for: ${name}`);
             (0, eval)(r.script);
@@ -186,31 +206,21 @@ async function handleQuest(q: any) {
         }
 
         if (r.status === "unpinned") {
-            freeze(
-                `Hash chưa được pin. Review file:\n  ${r.pendingPath}\n` +
-                `Nếu code OK, pin hash:\n  echo ${r.hash} > ${r.pinnedHashPath}\n` +
-                `Rồi restart Discord PTB.`
-            );
+            freeze(freezeMessage("unpinned", r));
             return;
         }
 
         if (r.status === "changed") {
-            freeze(
-                `Script aamiaa khác hash đã pin!\n` +
-                `  Pinned : ${r.pinnedHash}\n` +
-                `  Fetched: ${r.hash}\n` +
-                `Review script mới:\n  ${r.pendingPath}\n` +
-                `Nếu OK, update hash:\n  echo ${r.hash} > "${r.pinnedHashPath}"\n` +
-                `Rồi restart Discord PTB + bật lại plugin trong Vencord settings.`
-            );
+            freeze(freezeMessage("changed", r));
             return;
         }
 
-        logger.error("fetch error", r.error);
-        processed.delete(id);
+        // Transient native error (network, no js block). Keep `id` in `processed`
+        // so we don't hammer the gist every tick; user can restart plugin to retry.
+        logger.error(`fetch error for "${name}" (will NOT auto-retry; restart plugin to retry): ${r.error}`);
     } catch (e) {
-        logger.error(`handleQuest "${name}" failed`, e);
-        processed.delete(id);
+        // Same policy: keep id in processed to avoid retry storms on persistent errors.
+        logger.error(`handleQuest "${name}" failed (will NOT auto-retry)`, e);
     }
 }
 

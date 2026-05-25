@@ -2,29 +2,41 @@
 # pin-aamiaa.sh — fetch aamiaa gist, hash, show JS for review, then pin if admin OK
 #
 # Workflow:
-#   1. Download gist
-#   2. Extract ```js block to /tmp/aamiaa.js
+#   1. Download gist into a per-run private tmpdir (mktemp -d, cleaned via trap)
+#   2. Extract FIRST ```js block (line-anchored — must match native.ts logic)
 #   3. Compute SHA-256
-#   4. Mở /tmp/aamiaa.js trong editor (mặc định $EDITOR hoặc less)
+#   4. Mở extracted file trong editor (mặc định $EDITOR hoặc less)
 #   5. Hỏi confirm
-#   6. Nếu yes → ghi hash vào pinnedHash.txt + nhắc restart Discord PTB
+#   6. Nếu yes → ghi hash vào pinnedHash.txt + cleanup pending + nhắc restart Discord PTB
 
 set -euo pipefail
 
 GIST_URL="https://gist.githubusercontent.com/aamiaa/204cd9d42013ded9faf646fae7f89fbb/raw/CompleteDiscordQuest.md"
 SETTINGS_DIR="$HOME/Library/Application Support/Vencord/settings"
 PINNED_HASH_FILE="$SETTINGS_DIR/questAutoRunner.pinnedHash.txt"
-TMP_JS="/tmp/aamiaa.js"
+PENDING_SCRIPT_FILE="$SETTINGS_DIR/questAutoRunner.pending.js"
+
+# Use a private tmpdir to avoid symlink/race attacks on /tmp/aamiaa.*
+WORK_DIR=$(mktemp -d -t questautorunner.XXXXXX)
+trap 'rm -rf "$WORK_DIR"' EXIT
+TMP_MD="$WORK_DIR/aamiaa.md"
+TMP_JS="$WORK_DIR/aamiaa.js"
 
 mkdir -p "$SETTINGS_DIR"
 
 echo ">>> Downloading gist..."
-curl -fsSL "$GIST_URL" > /tmp/aamiaa.md
+curl -fsSL "$GIST_URL" -o "$TMP_MD"
 
-echo ">>> Extracting JS block..."
-awk '/^```js$/{f=1; next} /^```$/{f=0} f' /tmp/aamiaa.md > "$TMP_JS"
+echo ">>> Extracting first JS block (line-anchored, must match native.ts)..."
+# Stop after the first ```js / ``` pair so that adding extra ```js blocks
+# to the gist later cannot cause native and bash to extract different content.
+awk '
+  /^```js$/ && !done && !f { f=1; next }
+  /^```$/   && f           { f=0; done=1; next }
+  f
+' "$TMP_MD" > "$TMP_JS"
 if [[ ! -s "$TMP_JS" ]]; then
-  echo "FAIL: no JS block in gist" >&2
+  echo "FAIL: no ```js block in gist" >&2
   exit 1
 fi
 
@@ -55,6 +67,15 @@ case "$ans" in
   y|Y|yes|YES)
     echo "$HASH" > "$PINNED_HASH_FILE"
     echo ">>> Pinned: $PINNED_HASH_FILE"
+    # Clean stale pending file + freeze warning if present
+    if [[ -f "$PENDING_SCRIPT_FILE" ]]; then
+      rm -f "$PENDING_SCRIPT_FILE"
+      echo ">>> Removed stale $PENDING_SCRIPT_FILE"
+    fi
+    if [[ -f "$HOME/Desktop/QUEST_AUTORUNNER_FROZEN.txt" ]]; then
+      rm -f "$HOME/Desktop/QUEST_AUTORUNNER_FROZEN.txt"
+      echo ">>> Removed stale freeze warning on Desktop"
+    fi
     echo ">>> Restart Discord PTB:"
     echo "      osascript -e 'quit app \"Discord PTB\"' && sleep 1 && open -a \"Discord PTB\""
     echo ">>> Nếu plugin trước đó tự disable: vào Settings → Vencord → Plugins → bật lại QuestAutoRunner."
