@@ -80,6 +80,14 @@ function freeze(reason: string) {
         .catch(e => logger.warn("writeFreezeWarning failed", e));
     try {
         const v: any = (globalThis as any).Vencord;
+        const self = v?.Plugins?.plugins?.QuestAutoRunner;
+        // Must call stopPlugin so Vencord clears `p.started`. Without this,
+        // the next toggle ON hits the `already started` short-circuit in
+        // startPlugin() and surfaces as the misleading red toast
+        // "Error while starting plugin QuestAutoRunner".
+        if (self && typeof v?.Plugins?.stopPlugin === "function") {
+            v.Plugins.stopPlugin(self);
+        }
         if (v?.Settings?.plugins?.QuestAutoRunner) {
             v.Settings.plugins.QuestAutoRunner.enabled = false;
         }
