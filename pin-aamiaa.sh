@@ -30,11 +30,14 @@ curl -fsSL "$GIST_URL" -o "$TMP_MD"
 echo ">>> Extracting first JS block (line-anchored, must match native.ts)..."
 # Stop after the first ```js / ``` pair so that adding extra ```js blocks
 # to the gist later cannot cause native and bash to extract different content.
+# native.ts does lines.slice(start,end).join("\n") -> NO trailing newline.
+# awk's default ORS appends "\n" after the last line, so strip exactly one
+# trailing newline to keep the hash identical to native (else perpetual freeze).
 awk '
   /^```js$/ && !done && !f { f=1; next }
   /^```$/   && f           { f=0; done=1; next }
   f
-' "$TMP_MD" > "$TMP_JS"
+' "$TMP_MD" | perl -0777 -pe 's/\n\z//' > "$TMP_JS"
 if [[ ! -s "$TMP_JS" ]]; then
   echo "FAIL: no ```js block in gist" >&2
   exit 1

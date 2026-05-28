@@ -214,6 +214,11 @@ cd ~/Vencord && git pull && pnpm install && pnpm build
 ### Plugin FROZEN ngay lần đầu bật
 - Chưa pin hash. Chạy `pin-aamiaa.sh` (bước 5 trên).
 
+### Plugin tự freeze/tắt dù VỪA pin xong (hash luôn lệch)
+- Bug cũ: `pin-aamiaa.sh` dùng `awk` (mặc định thêm `\n` cuối) còn `native.ts` trích bằng `lines.slice().join("\n")` (KHÔNG có `\n` cuối) → hash pin lệch hash runtime đúng 1 newline → freeze mỗi lần bật, vĩnh viễn.
+- Đã fix: pin script strip newline cuối (`perl -0777 -pe 's/\n\z//'`) cho khớp `native.ts`.
+- Nếu pin file của bạn vẫn là hash kiểu cũ (tạo trước bản fix), chạy lại `pin-aamiaa.sh` (bản mới) để pin đúng, rồi bật lại plugin.
+
 ### "TypeError: Failed to fetch"
 - Native module chưa load. Cmd+Q Discord PTB và mở lại (KHÔNG phải Cmd+R)
 
